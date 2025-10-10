@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AI Storybook Adventure</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- Tesseract.js (Open Source OCR) is now loaded here to run client-side -->
+<!-- Tesseract.js -->
 <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-<!-- PDF.js Libraries for client-side PDF rendering -->
+<!-- PDF.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <style>
   body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
@@ -20,10 +20,7 @@
 </head>
 <body>
 <div id="app" class="min-h-screen flex flex-col items-center p-4 sm:p-8">
-  <!-- Logo -->
-  <img src="https://raw.githubusercontent.com/siddth09/storybookai-backend/main/public/logo.png" 
-       alt="StoryBook AI Logo" 
-       class="w-32 h-auto mb-4">
+  <img src="https://raw.githubusercontent.com/siddth09/storybookai-backend/main/public/logo.png" alt="StoryBook AI Logo" class="w-32 h-auto mb-4">
 
   <h1 class="text-3xl sm:text-4xl font-extrabold text-blue-800 mb-6 text-center">
     StoryBook AI - A Storybook Studio
@@ -48,7 +45,7 @@
 
   <p id="status-message" class="text-sm text-gray-600 mt-2 text-center"></p>
 
-  <button id="generate-button" onclick="startGeneration()" class="w-full mt-4 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition shadow-md disabled:bg-gray-400">
+  <button id="generate-button" class="w-full mt-4 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition shadow-md disabled:bg-gray-400">
     Generate My Story!
   </button>
 </div>
@@ -78,10 +75,10 @@
           <p id="page-text" class="text-lg text-gray-800 leading-relaxed font-serif"></p>
         </div>
         <div class="mt-6 flex flex-col space-y-3">
-          <button id="narration-button" onclick="toggleNarration()" class="py-3 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition shadow-md flex items-center justify-center disabled:bg-gray-400">Read This Page Aloud</button>
+          <button id="narration-button" class="py-3 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition shadow-md flex items-center justify-center disabled:bg-gray-400">Read This Page Aloud</button>
           <div class="flex space-x-4">
-            <button id="prev-button" onclick="navigateStory(-1)" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Previous</button>
-            <button id="next-button" onclick="navigateStory(1)" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Next</button>
+            <button id="prev-button" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Previous</button>
+            <button id="next-button" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Next</button>
           </div>
         </div>
       </div>
@@ -96,7 +93,7 @@
 </div>
 
 <script>
-// Global State and Elements
+// ---------- GLOBAL STATE ----------
 let storyData = null;
 let currentPage = 0;
 let audioPlayer = new Audio();
@@ -116,24 +113,24 @@ const nextButton = document.getElementById('next-button');
 const narrationButton = document.getElementById('narration-button');
 const progressBarFill = document.getElementById('progress-fill');
 
-// Elements for STT/Document Upload
 const recordButton = document.getElementById('record-button');
 const docUploadInput = document.getElementById('doc-upload');
 const statusMessage = document.getElementById('status-message');
 
-// --- Configuration ---
-// The client now calls a single Netlify Function endpoint
 const NETLIFY_FUNCTION_URL = '/.netlify/functions/generate-ai';
 const STORY_PAGE_COUNT = 3;
 
+// PDF.js worker
+if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+}
 
-// --- Utility Functions ---
-
+// ---------- UTILITIES ----------
 function showError(message){
     const errorBox = document.getElementById('error-box');
     document.getElementById('error-text').textContent = message;
     errorBox.classList.remove('hidden');
-    setTimeout(() => errorBox.classList.add('hidden'), 5000);
+    setTimeout(() => errorBox.classList.add('hidden'), 6000);
     console.error(message);
 }
 
@@ -143,209 +140,23 @@ function updateLoading(message, step, totalSteps = 15){
     progressBarFill.style.width = `${percent}%`;
 }
 
-// --- Audio Conversion Utilities (MUST remain client-side) ---
 
-/** Converts a base64 string to an ArrayBuffer. */
-function base64ToArrayBuffer(base64) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+// ---------- TTS (Browser) ----------
+function speakText(text){
+    if (!("speechSynthesis" in window)) {
+        showError("Browser doesn't support speech synthesis.");
+        return;
     }
-    return bytes.buffer;
+    window.speechSynthesis.cancel(); // stop any existing
+    const ut = new SpeechSynthesisUtterance(text);
+    ut.rate = 0.95;
+    ut.pitch = 1.0;
+    window.speechSynthesis.speak(ut);
 }
 
-/** Converts PCM data (Int16Array) to a WAV Blob. */
-function pcmToWav(pcm16, sampleRate = 24000) {
-    const buffer = new ArrayBuffer(44 + pcm16.length * 2);
-    const view = new DataView(buffer);
-    let offset = 0;
-
-    function writeString(s) {
-        for (let i = 0; i < s.length; i++) {
-            view.setUint8(offset++, s.charCodeAt(i));
-        }
-    }
-    function writeUint32(i) { view.setUint32(offset, i, true); offset += 4; }
-    function writeUint16(i) { view.setUint16(offset, i, true); offset += 2; }
-
-    // RIFF chunk descriptor
-    writeString('RIFF');
-    writeUint32(36 + pcm16.length * 2); // Chunk size
-    writeString('WAVE');
-
-    // fmt chunk
-    writeString('fmt ');
-    writeUint32(16); // Sub-chunk size
-    writeUint16(1);  // Audio format (1 for PCM)
-    writeUint16(1);  // Num channels (Mono)
-    writeUint32(sampleRate);
-    writeUint32(sampleRate * 2); // Byte rate 
-    writeUint16(2);  // Block align
-    writeUint16(16); // Bits per sample
-
-    // data chunk
-    writeString('data');
-    writeUint32(pcm16.length * 2); // Sub-chunk 2 size
-
-    // Write PCM data
-    for (let i = 0; i < pcm16.length; i++) {
-        view.setInt16(offset, pcm16[i], true);
-        offset += 2;
-    }
-
-    return new Blob([view], { type: 'audio/wav' });
-}
-
-
-// --- Storybook Navigation and Audio ---
-
-function stopNarration(){
-    audioPlayer.pause();
-    audioPlayer.currentTime = 0;
-    isReading = false;
-    narrationButton.textContent = 'Read This Page Aloud';
-    narrationButton.classList.remove('bg-red-500','hover:bg-red-600');
-    narationButton.classList.add('bg-yellow-500','hover:bg-yellow-600');
-}
-
-function displayPage(pageNum){
-    if(!storyData || !storyData.pages.length) return;
-    currentPage = pageNum;
-    const pageIndex = pageNum - 1;
-    const page = storyData.pages[pageIndex];
-    stopNarration();
-    storyTitleEl.textContent = storyData.title;
-    pageNumberDisplay.textContent = `Page ${pageNum} of ${storyData.pages.length}`;
-    
-    // Set image source
-    pageImage.src = page.imageUrl || 'https://placehold.co/400x300/e0f7fa/00bcd4?text=Illustration+Failed';
-    pageText.textContent = page.text;
-    
-    prevButton.disabled = pageNum === 1;
-    nextButton.disabled = pageNum === storyData.pages.length;
-    
-    if (!page.audioData || page.audioData.data === 'TTS_FAILED') {
-        narrationButton.textContent = '🔊 Narration Unavailable';
-        narrationButton.disabled = true;
-        audioPlayer.src = ''; 
-    } else {
-        // CONVERT BASE64 PCM AUDIO TO PLAYABLE WAV BLOB HERE
-        try {
-            const pcmData = base64ToArrayBuffer(page.audioData.data);
-            const pcm16 = new Int16Array(pcmData);
-            
-            // Assume 24000 sample rate, as specified in the TTS API call
-            const wavBlob = pcmToWav(pcm16, 24000); 
-            page.audioUrl = URL.createObjectURL(wavBlob);
-            
-            narrationButton.textContent = 'Read This Page Aloud';
-            narrationButton.disabled = false;
-            audioPlayer.src = page.audioUrl;
-            toggleNarration(true);
-        } catch(e) {
-            showError("Audio conversion failed: " + e.message);
-            narrationButton.textContent = '🔊 Narration Conversion Failed';
-            narrationButton.disabled = true;
-        }
-    }
-}
-
-function navigateStory(direction){
-    const newPage = currentPage + direction;
-    if(newPage >= 1 && newPage <= storyData.pages.length){
-        displayPage(newPage);
-    }
-}
-
-function toggleNarration(startImmediately = false){
-    if (narrationButton.disabled) return;
-
-    if (isReading && !startImmediately) {
-        audioPlayer.pause();
-        isReading = false;
-        narrationButton.textContent = 'Read This Page Aloud';
-        narrationButton.classList.remove('bg-red-500','hover:bg-red-600');
-        narrationButton.classList.add('bg-yellow-500','hover:bg-yellow-600');
-    } else if(audioPlayer.src){
-        audioPlayer.play().catch(e => {
-            console.error(e);
-            showError("Could not play audio. User interaction may be required to start playback.");
-        });
-        isReading = true;
-        narrationButton.textContent = 'Stop Reading';
-        narrationButton.classList.remove('bg-yellow-500','hover:bg-yellow-600');
-        narrationButton.classList.add('bg-red-500','hover:bg-red-600');
-    }
-}
-
-audioPlayer.addEventListener('ended', stopNarration);
-
-
-// --- CORE GENERATION (Calls Netlify Function) ---
-
-async function startGeneration(){
-    const prompt = storyPromptEl.value.trim();
-    if(!prompt) return showError("Please enter a story idea!");
-    
-    storyData = null;
-    currentPage = 0;
-    pageView.classList.add('hidden');
-    loadingState.classList.remove('hidden');
-    generateButton.disabled = true;
-    generateButton.textContent = 'Generating...';
-    
-    updateLoading("Starting generation via secure serverless function...", 1);
-    
-    try{
-        // 1. Call the Netlify Function endpoint
-        const response = await fetch(NETLIFY_FUNCTION_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            // Send the prompt and desired page count to the server
-            body: JSON.stringify({ prompt, pageCount: STORY_PAGE_COUNT })
-        });
-
-        // 2. Check for server errors
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Netlify Function Error (${response.status}): ${errorText.substring(0, 100)}...`);
-        }
-
-        // 3. Receive the complete story object from the function
-        const finalStoryData = await response.json();
-        
-        if (!finalStoryData || !finalStoryData.pages || finalStoryData.pages.length === 0) {
-             throw new Error("Server returned empty or invalid story data.");
-        }
-
-        storyData = finalStoryData;
-        updateLoading("Story is ready! Converting audio...", 15);
-
-        // 4. Display the first page after successful generation
-        setTimeout(()=>{
-            displayPage(1);
-            loadingState.classList.add('hidden');
-            pageView.classList.remove('hidden');
-            generateButton.disabled = false;
-            generateButton.textContent = 'Generate My Story!';
-        }, 1000);
-
-    } catch(e){
-        showError(`Generation failed: ${e.message}`);
-        loadingState.classList.add('hidden');
-        generateButton.disabled = false;
-        generateButton.textContent = 'Generate My Story!';
-    }
-}
-
-
-// --- STT and OCR Logic (Unchanged and kept client-side) ---
-
+// ---------- STT (Browser) ----------
 let recognition;
 let isRecording = false;
-
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
@@ -401,11 +212,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     statusMessage.textContent = "⚠️ Speech recognition is not supported in this browser.";
 }
 
-// Set PDF.js worker source globally
-if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-}
-
+// ---------- OCR (Tesseract + PDF.js) ----------
 docUploadInput.addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -428,7 +235,6 @@ docUploadInput.addEventListener('change', async (event) => {
 
         if (file.type === 'application/pdf' && window.pdfjsLib) {
             statusMessage.textContent = `📚 Preparing PDF for OCR...`;
-            
             const arrayBuffer = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result);
@@ -439,8 +245,7 @@ docUploadInput.addEventListener('change', async (event) => {
             const loadingTask = window.pdfjsLib.getDocument(arrayBuffer);
             const pdf = await loadingTask.promise;
             const page = await pdf.getPage(1);
-            
-            const scale = 2.0; 
+            const scale = 2.0;
             const viewport = page.getViewport({ scale: scale });
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -448,14 +253,12 @@ docUploadInput.addEventListener('change', async (event) => {
             canvas.width = viewport.width;
 
             statusMessage.textContent = `🖼️ Rendering PDF page to image...`;
-
             await page.render({ canvasContext: context, viewport: viewport }).promise;
             recognizedObject = canvas;
 
         } else if (file.type === 'application/pdf' && !window.pdfjsLib) {
             throw new Error("PDF.js library failed to load, cannot process PDF.");
         }
-
 
         const { data: { text } } = await worker.recognize(recognizedObject);
         await worker.terminate();
@@ -480,8 +283,126 @@ docUploadInput.addEventListener('change', async (event) => {
     }
 });
 
+// ---------- Helper: placeholder image generator ----------
+function placeholderImageForPrompt(prompt) {
+    // Use a placeholder service; show short version of prompt on image
+    const label = encodeURIComponent(prompt.length > 60 ? prompt.slice(0,57) + '...' : prompt);
+    return `https://placehold.co/600x400/EEF2FF/0B4C86?text=${label}`;
+}
 
-// --- Initial Setup ---
+// ---------- Story navigation & audio ----------
+function stopNarration(){
+    window.speechSynthesis.cancel();
+    isReading = false;
+    narrationButton.textContent = 'Read This Page Aloud';
+    narrationButton.classList.remove('bg-red-500','hover:bg-red-600');
+    narrationButton.classList.add('bg-yellow-500','hover:bg-yellow-600');
+}
+
+function displayPage(pageNum){
+    if(!storyData || !storyData.pages || !storyData.pages.length) return;
+    currentPage = pageNum;
+    const pageIndex = pageNum - 1;
+    const page = storyData.pages[pageIndex];
+    stopNarration();
+    storyTitleEl.textContent = storyData.title || 'AI Story';
+    pageNumberDisplay.textContent = `Page ${pageNum} of ${storyData.pages.length}`;
+    pageImage.src = page.imageUrl || placeholderImageForPrompt(page.imagePrompt || page.image_prompt || page.imagePrompt);
+    pageText.textContent = page.text || page.text;
+    prevButton.disabled = pageNum === 1;
+    nextButton.disabled = pageNum === storyData.pages.length;
+
+    if (!page.audioUrl) {
+        narrationButton.textContent = 'Read This Page Aloud';
+        narrationButton.disabled = false; // we can use browser TTS
+        narrationButton.onclick = () => speakText(page.text || page.text);
+    } else {
+        // If backend provides audioUrl, play it; otherwise use browser TTS
+        narrationButton.disabled = false;
+        narrationButton.onclick = () => {
+            if (audioPlayer.src !== page.audioUrl) {
+                audioPlayer.src = page.audioUrl;
+            }
+            if (isReading) { audioPlayer.pause(); isReading=false; narrationButton.textContent='Read This Page Aloud'; }
+            else { audioPlayer.play(); isReading=true; narrationButton.textContent='Stop Reading'; }
+        };
+    }
+}
+
+function navigateStory(direction){
+    const newPage = currentPage + direction;
+    if(newPage >= 1 && newPage <= storyData.pages.length){
+        displayPage(newPage);
+    }
+}
+
+// ---------- Core: call Netlify function to generate story ----------
+async function startGeneration(){
+    const prompt = storyPromptEl.value.trim();
+    if(!prompt) return showError("Please enter a story idea!");
+    
+    storyData = null;
+    currentPage = 0;
+    pageView.classList.add('hidden');
+    loadingState.classList.remove('hidden');
+    generateButton.disabled = true;
+    generateButton.textContent = 'Generating...';
+    
+    updateLoading("Calling serverless story generator...", 1);
+    
+    try{
+        const response = await fetch(NETLIFY_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, pageCount: STORY_PAGE_COUNT })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error (${response.status}): ${errorText}`);
+        }
+
+        const json = await response.json();
+        // The function returns { story: { title, pages: [ {text, imagePrompt, imageUrl?, audioUrl?} ] } }
+        const final = json.story || json;
+        if (!final || !final.pages || final.pages.length === 0) {
+            throw new Error("Server returned empty story.");
+        }
+
+        // Normalize pages: ensure keys imagePrompt / text
+        storyData = {
+            title: final.title || "AI Storybook",
+            pages: final.pages.map(p => ({
+                text: p.text || p.body || p.page_text || '',
+                imagePrompt: p.imagePrompt || p.image_prompt || (p.imagePrompt ? p.imagePrompt : ''),
+                imageUrl: p.imageUrl || p.image_url || placeholderImageForPrompt(p.imagePrompt || p.image_prompt || p.text),
+                audioUrl: p.audioUrl || null
+            }))
+        };
+
+        updateLoading("Story received. Preparing...", 12);
+        setTimeout(()=>{
+            displayPage(1);
+            loadingState.classList.add('hidden');
+            pageView.classList.remove('hidden');
+            generateButton.disabled = false;
+            generateButton.textContent = 'Generate My Story!';
+        }, 500);
+
+    } catch(e){
+        showError(`Generation failed: ${e.message}`);
+        loadingState.classList.add('hidden');
+        generateButton.disabled = false;
+        generateButton.textContent = 'Generate My Story!';
+    }
+}
+
+// ----- wire buttons -----
+generateButton.addEventListener('click', startGeneration);
+prevButton.addEventListener('click', () => navigateStory(-1));
+nextButton.addEventListener('click', () => navigateStory(1));
+
+// Initial UI setup
 window.onload = () => {
     prevButton.disabled = true;
     nextButton.disabled = true;
