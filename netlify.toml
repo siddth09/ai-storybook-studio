@@ -1,1 +1,10 @@
-[build]Since this is a simple HTML file, no build command is needed.publish = "."[functions]Netlify will look for function files inside the 'functions' directory.directory = "functions"node_bundler = "esbuild"
+[build]
+
+This tells Netlify to host files directly from the repository root.
+publish = "."
+
+[functions]
+
+This specifies the directory where the serverless functions (generate-ai.js) are located.
+directory = "functions"
+node_bundler = "esbuild"
