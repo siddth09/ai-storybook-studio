@@ -1,10 +1,11 @@
-# netlify.toml
-
 [build]
-# This tells Netlify to host files directly from the repository root.
-publish = "."
+  publish = "."
+  functions = "netlify/functions"
 
 [functions]
-# This specifies where your Netlify serverless functions live.
-directory = "functions"
-node_bundler = "esbuild"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
