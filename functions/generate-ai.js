@@ -202,8 +202,10 @@ export async function handler(event) {
 
     try {
         const { prompt } = JSON.parse(event.body);
-        if (!prompt) {
-            return { statusCode: 400, body: 'Missing required parameter: prompt' };
+        
+        // FIX: Ensure prompt is a non-empty string before passing it to the API
+        if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+            return { statusCode: 400, body: 'Missing or empty story prompt.' };
         }
 
         const storyData = await generateFullStory(prompt);
