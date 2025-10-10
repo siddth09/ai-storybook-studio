@@ -1,0 +1,15 @@
+{
+  "name": "ai-storybook-studio-functions",
+  "version": "1.0.0",
+  "description": "Backend functions for AI Storybook Studio",
+  "main": "index.js",
+  "dependencies": {
+    "@google/genai": "^0.1.0",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
+    // ... any other packages your functions need (like firebase-admin, etc.)
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
