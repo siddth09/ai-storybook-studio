@@ -1,0 +1,1 @@
+[build]Since this is a simple HTML file, no build command is needed.publish = "."[functions]Netlify will look for function files inside the 'functions' directory.directory = "functions"node_bundler = "esbuild"
