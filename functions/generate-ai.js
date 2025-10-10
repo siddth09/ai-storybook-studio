@@ -94,6 +94,8 @@ async function generateStoryStructure(prompt) {
         },
     };
 
+    console.log("Gemini API Request Payload:", JSON.stringify(payload, null, 2)); // DEBUG LOG 2
+
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash-preview-05-20", payload });
     
     let jsonText = response.candidates[0].content.parts[0].text.trim();
@@ -201,10 +203,13 @@ export async function handler(event) {
     }
 
     try {
-        const { prompt } = JSON.parse(event.body);
-        
+        const body = event.body ? JSON.parse(event.body) : {}; // Safer parsing
+        const prompt = body.prompt || ''; // Default to empty string if not found
+
+        console.log("Received prompt from client:", prompt); // DEBUG LOG 1
+
         // FIX: Ensure prompt is a non-empty string before passing it to the API
-        if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+        if (typeof prompt !== 'string' || prompt.trim().length === 0) {
             return { statusCode: 400, body: 'Missing or empty story prompt.' };
         }
 
