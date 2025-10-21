@@ -29,42 +29,58 @@ Produce exactly ${pageCount} pages.`;
 
   const user = `Write a ${pageCount}-page children's story based on: ${prompt}`;
 
-  // Use Gemini model
   const model = client.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-  // We send system + user as input (array)
-  const res = await model.generateContent([system, user]);
+  // guard and call model
+  let res;
+  try {
+    res = await model.generateContent([system, user]);
+  } catch (err) {
+    throw new Error(`Model.generateContent failed: ${err?.message || String(err)}`);
+  }
 
-  // get textual response
-  const raw = (res?.response?.text && res.response.text()) || '';
+  // get textual response - use await in case it's an async text getter
+  const raw = (res && res.response && typeof res.response.text === "function")
+    ? await res.response.text()
+    : (res?.response?.text && res.response.text()) || '';
 
-  // sanitize potential code fences
-  let jsonText = raw.trim();
+  let jsonText = (raw || '').toString().trim();
+
+  // strip code fences if present
   if (jsonText.startsWith("```")) {
-    // remove leading fence + optional language
     jsonText = jsonText.replace(/^```(?:json)?\n?/, "");
   }
   if (jsonText.endsWith("```")) jsonText = jsonText.replace(/```$/, "").trim();
 
-  // Try to parse JSON
+  // Try to parse JSON strictly
   try {
     const parsed = JSON.parse(jsonText);
     return parsed;
   } catch (err) {
-    // If parsing fails, attempt to extract JSON substring
+    // attempt to extract object substring
     const match = jsonText.match(/\{[\s\S]*\}/);
     if (match) {
       try {
         return JSON.parse(match[0]);
       } catch (e) {
-        throw new Error("AI returned invalid JSON.");
+        throw new Error("AI returned invalid JSON (extracted substring failed to parse).");
       }
     }
-    throw new Error("Unable to parse story JSON from model output.");
+    // return helpful debug info if nothing parses
+    throw new Error("Unable to parse story JSON from model output. Raw model output preview: " + (jsonText.slice(0, 1000)));
   }
 }
 
 export const handler = async (event) => {
+  // quick GET probe so visiting the function url returns a short message (helps debug)
+  if (event.httpMethod === "GET") {
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ok: true, message: "generate-ai function is deployed. POST with { prompt, pageCount } to generate." })
+    };
+  }
+
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
@@ -86,7 +102,6 @@ export const handler = async (event) => {
       page_number: p.page_number,
       text: p.text,
       imagePrompt: p.imagePrompt || p.image_prompt || '',
-      // placeholder image — client will replace with real image generation later
       imageUrl: `https://placehold.co/600x400/EEF2FF/0B4C86?text=${encodeURIComponent((p.imagePrompt || p.text || '').slice(0, 60))}`,
       audioUrl: null
     }));
@@ -106,6 +121,7 @@ export const handler = async (event) => {
     console.error("generate-ai error:", error);
     return {
       statusCode: 500,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ error: error.message || "Server error" })
     };
   }
