@@ -1,414 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AI Storybook Adventure</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Tesseract.js -->
-<script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-<!-- PDF.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-<style>
-  body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
-  .storybook-page { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05); transition: transform 0.3s ease-in-out; transform-style: preserve-3d; }
-  .loader-dot { animation: pulse 1.5s infinite; }
-  .loader-dot:nth-child(2){animation-delay:0.5s;}
-  .loader-dot:nth-child(3){animation-delay:1s;}
-  @keyframes pulse {0%,100%{opacity:1;}50%{opacity:0.5;}}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Storybook Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #333; }
+    .story-card { background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 2rem; }
+  </style>
 </head>
-<body>
-<div id="app" class="min-h-screen flex flex-col items-center p-4 sm:p-8">
-  <img src="https://raw.githubusercontent.com/siddth09/storybookai-backend/main/public/logo.png" alt="StoryBook AI Logo" class="w-32 h-auto mb-4">
+<body class="min-h-screen flex flex-col items-center p-6">
+  <h1 class="text-3xl font-bold mb-4 text-center">📖 AI Storybook Studio</h1>
+  <p class="text-gray-600 mb-6 text-center">Create magical tales using Gemini AI ✨</p>
 
-  <h1 class="text-3xl sm:text-4xl font-extrabold text-blue-800 mb-6 text-center">
-    StoryBook AI - A Storybook Studio
-  </h1>
-
-<div id="input-area" class="w-full max-w-xl bg-white p-6 rounded-xl shadow-lg mb-8">
-  <p class="text-sm text-gray-500 mb-4">
-    Tell me what your story is about (e.g., 'A friendly alien who lost his dog on the moon').
-  </p>
-  <textarea id="story-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition resize-none" placeholder="Enter your story idea..."></textarea>
-  
-  <div class="mt-4 flex flex-col sm:flex-row gap-3">
-    <button id="record-button" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md flex items-center justify-center">
-      🎙️ Speak My Idea
-    </button>
-    
-    <label for="doc-upload" class="flex-1 py-3 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600 transition shadow-md flex items-center justify-center cursor-pointer">
-      📄 Upload Document
-    </label>
-    <input id="doc-upload" type="file" accept=".jpg,.jpeg,.png,.pdf" class="hidden" />
-  </div>
-
-  <p id="status-message" class="text-sm text-gray-600 mt-2 text-center"></p>
-
-  <button id="generate-button" class="w-full mt-4 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition shadow-md disabled:bg-gray-400">
-    Generate My Story!
-  </button>
-</div>
-
-<div id="story-container" class="w-full max-w-4xl relative min-h-[60vh] flex justify-center">
-  <div id="loading-state" class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10 hidden rounded-xl shadow-2xl p-8">
-    <div class="flex space-x-2">
-      <div class="loader-dot w-4 h-4 bg-blue-500 rounded-full"></div>
-      <div class="loader-dot w-4 h-4 bg-green-500 rounded-full"></div>
-      <div class="loader-dot w-4 h-4 bg-yellow-500 rounded-full"></div>
-    </div>
-    <p id="loading-message" class="mt-4 text-xl font-semibold text-gray-700 text-center">Generating Story Pages...</p>
-    <div id="progress-bar" class="w-full max-w-sm mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
-      <div id="progress-fill" class="h-full bg-blue-500 transition-all duration-500 ease-in-out" style="width:0%;"></div>
+  <div class="flex flex-col md:flex-row gap-4">
+    <textarea id="prompt" class="border rounded-lg p-3 w-80 h-40" placeholder="Describe your story idea..."></textarea>
+    <div class="flex flex-col gap-2">
+      <button id="generateBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Generate Story</button>
+      <button id="speakBtn" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">🔊 Read Aloud</button>
+      <button id="listenBtn" class="bg-yellow-400 text-black px-4 py-2 rounded-lg hover:bg-yellow-500">🎙️ Speak Prompt</button>
+      <input type="file" id="fileInput" class="mt-2" accept="image/*,.pdf" />
     </div>
   </div>
 
-  <div id="page-view" class="storybook-page w-full h-full bg-white rounded-xl shadow-2xl p-4 sm:p-8 flex flex-col hidden">
-    <h2 id="story-title" class="text-2xl font-bold text-center text-blue-700 mb-4"></h2>
-    <div class="flex-grow flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-8">
-      <div class="w-full sm:w-1/2 flex justify-center">
-        <img id="page-image" src="https://placehold.co/400x300/e0f7fa/00bcd4?text=Illustration+Loading" alt="Story illustration" class="w-full h-auto max-h-[50vh] object-contain rounded-lg border-4 border-blue-100 shadow-md">
-      </div>
-      <div class="w-full sm:w-1/2 flex flex-col justify-between h-full">
-        <div class="text-area">
-          <p id="page-number-display" class="text-sm font-medium text-gray-500 mb-2"></p>
-          <p id="page-text" class="text-lg text-gray-800 leading-relaxed font-serif"></p>
-        </div>
-        <div class="mt-6 flex flex-col space-y-3">
-          <button id="narration-button" class="py-3 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition shadow-md flex items-center justify-center disabled:bg-gray-400">Read This Page Aloud</button>
-          <div class="flex space-x-4">
-            <button id="prev-button" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Previous</button>
-            <button id="next-button" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Next</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+  <div id="output" class="story-card w-full md:w-2/3 hidden"></div>
 
-<div id="error-box" class="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-xl hidden" role="alert">
-  <p id="error-text"></p>
-</div>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script>
+    const generateBtn = document.getElementById("generateBtn");
+    const outputDiv = document.getElementById("output");
+    const speakBtn = document.getElementById("speakBtn");
+    const listenBtn = document.getElementById("listenBtn");
+    const fileInput = document.getElementById("fileInput");
 
-</div>
+    // 🧠 Generate Story via Netlify Function
+    generateBtn.addEventListener("click", async () => {
+      const prompt = document.getElementById("prompt").value.trim();
+      if (!prompt) return alert("Please enter a prompt first!");
 
-<script>
-// ---------- GLOBAL STATE ----------
-let storyData = null;
-let currentPage = 0;
-let audioPlayer = new Audio();
-let isReading = false;
+      outputDiv.classList.remove("hidden");
+      outputDiv.innerHTML = "<p>🌀 Generating your story...</p>";
 
-const storyPromptEl = document.getElementById('story-prompt');
-const generateButton = document.getElementById('generate-button');
-const loadingState = document.getElementById('loading-state');
-const loadingMessage = document.getElementById('loading-message');
-const pageView = document.getElementById('page-view');
-const storyTitleEl = document.getElementById('story-title');
-const pageNumberDisplay = document.getElementById('page-number-display');
-const pageImage = document.getElementById('page-image');
-const pageText = document.getElementById('page-text');
-const prevButton = document.getElementById('prev-button');
-const nextButton = document.getElementById('next-button');
-const narrationButton = document.getElementById('narration-button');
-const progressBarFill = document.getElementById('progress-fill');
+      const res = await fetch("/api/generate-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
 
-const recordButton = document.getElementById('record-button');
-const docUploadInput = document.getElementById('doc-upload');
-const statusMessage = document.getElementById('status-message');
-
-const NETLIFY_FUNCTION_URL = '/.netlify/functions/generate-ai';
-const STORY_PAGE_COUNT = 3;
-
-// PDF.js worker
-if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-}
-
-// ---------- UTILITIES ----------
-function showError(message){
-    const errorBox = document.getElementById('error-box');
-    document.getElementById('error-text').textContent = message;
-    errorBox.classList.remove('hidden');
-    setTimeout(() => errorBox.classList.add('hidden'), 6000);
-    console.error(message);
-}
-
-function updateLoading(message, step, totalSteps = 15){
-    loadingMessage.textContent = message;
-    const percent = Math.min(100, Math.round((step / totalSteps) * 100));
-    progressBarFill.style.width = `${percent}%`;
-}
-
-
-// ---------- TTS (Browser) ----------
-function speakText(text){
-    if (!("speechSynthesis" in window)) {
-        showError("Browser doesn't support speech synthesis.");
-        return;
-    }
-    window.speechSynthesis.cancel(); // stop any existing
-    const ut = new SpeechSynthesisUtterance(text);
-    ut.rate = 0.95;
-    ut.pitch = 1.0;
-    window.speechSynthesis.speak(ut);
-}
-
-// ---------- STT (Browser) ----------
-let recognition;
-let isRecording = false;
-if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-        isRecording = true;
-        statusMessage.textContent = "🎤 Listening... Speak now!";
-        recordButton.classList.add('bg-red-500', 'animate-pulse');
-        recordButton.classList.remove('bg-blue-500');
-        recordButton.textContent = "🛑 Stop Listening";
-        storyPromptEl.value = '';
-    };
-
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        storyPromptEl.value = transcript;
-        statusMessage.textContent = "✅ Speech recorded and added to prompt.";
-    };
-    
-    recognition.onerror = (event) => {
-        if (event.error === 'no-speech') {
-            statusMessage.textContent = "⚠️ No speech detected. Try again.";
-        } else {
-            showError(`Speech Recognition Error: ${event.error}`);
-        }
-        recognition.stop();
-    };
-
-    recognition.onend = () => {
-        isRecording = false;
-        recordButton.classList.remove('bg-red-500', 'animate-pulse');
-        recordButton.classList.add('bg-blue-500');
-        recordButton.textContent = "🎙️ Speak My Idea";
-        if (statusMessage.textContent === "🎤 Listening... Speak now!") {
-             statusMessage.textContent = '';
-        }
-    };
-
-    recordButton.addEventListener('click', () => {
-        try {
-            if (isRecording) recognition.stop();
-            else recognition.start();
-        } catch (e) {
-            console.warn("Recognition already active or stopping.", e);
-        }
+      const data = await res.json();
+      if (data.error) {
+        outputDiv.innerHTML = "<p class='text-red-500'>❌ " + data.error + "</p>";
+      } else {
+        outputDiv.innerHTML = "<h2 class='text-xl font-bold mb-2'>Your Story</h2><p>" + data.story + "</p>";
+      }
     });
-} else {
-    recordButton.disabled = true;
-    recordButton.textContent = "Speech Not Supported";
-    statusMessage.textContent = "⚠️ Speech recognition is not supported in this browser.";
-}
 
-// ---------- OCR (Tesseract + PDF.js) ----------
-docUploadInput.addEventListener('change', async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    // 🔊 Text-to-Speech
+    speakBtn.addEventListener("click", () => {
+      const text = outputDiv.innerText;
+      if (!text) return alert("No story to read!");
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      speechSynthesis.speak(utterance);
+    });
 
-    statusMessage.textContent = `📄 Loading OCR engine...`;
-    generateButton.disabled = true;
+    // 🎙️ Speech-to-Text
+    listenBtn.addEventListener("click", () => {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = "en-US";
+      recognition.start();
+      recognition.onresult = (event) => {
+        document.getElementById("prompt").value = event.results[0][0].transcript;
+      };
+    });
 
-    try {
-        const worker = await Tesseract.createWorker('eng', 1, {
-            logger: m => {
-                if (m.status === 'recognizing text') {
-                    statusMessage.textContent = `🧠 Recognizing text: ${(m.progress * 100).toFixed(0)}%`;
-                } else if (m.status === 'loading tesseract core') {
-                    statusMessage.textContent = `⚙️ Loading Tesseract core...`;
-                }
-            }
-        });
+    // 📄 OCR Image/PDF Upload
+    fileInput.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
 
-        let recognizedObject = file;
+      outputDiv.classList.remove("hidden");
+      outputDiv.innerHTML = "🔍 Extracting text...";
 
-        if (file.type === 'application/pdf' && window.pdfjsLib) {
-            statusMessage.textContent = `📚 Preparing PDF for OCR...`;
-            const arrayBuffer = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsArrayBuffer(file);
-            });
-
-            const loadingTask = window.pdfjsLib.getDocument(arrayBuffer);
-            const pdf = await loadingTask.promise;
-            const page = await pdf.getPage(1);
-            const scale = 2.0;
-            const viewport = page.getViewport({ scale: scale });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            statusMessage.textContent = `🖼️ Rendering PDF page to image...`;
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            recognizedObject = canvas;
-
-        } else if (file.type === 'application/pdf' && !window.pdfjsLib) {
-            throw new Error("PDF.js library failed to load, cannot process PDF.");
-        }
-
-        const { data: { text } } = await worker.recognize(recognizedObject);
-        await worker.terminate();
-        
-        const extractedText = text.trim();
-
-        if (extractedText) {
-            storyPromptEl.value = extractedText;
-            statusMessage.textContent = `✅ Text extracted successfully from ${file.name}!`;
-        } else {
-            statusMessage.textContent = "⚠️ No readable text found in the document.";
-        }
-    } catch (err) {
-        console.error("Tesseract/PDF OCR Error:", err);
-        const errorMsg = err.message || (err.status ? `Tesseract status error: ${err.status}` : 'Unknown OCR processing error.');
-        showError(`OCR failed: ${errorMsg}`);
-        statusMessage.textContent = "❌ Failed to extract text. Please ensure the file is a clear image/PDF page.";
-    } finally {
-        event.target.value = ''; 
-        generateButton.disabled = false;
-        setTimeout(() => { statusMessage.textContent = ''; }, 7000);
-    }
-});
-
-// ---------- Helper: placeholder image generator ----------
-function placeholderImageForPrompt(prompt) {
-    // Use a placeholder service; show short version of prompt on image
-    const label = encodeURIComponent(prompt.length > 60 ? prompt.slice(0,57) + '...' : prompt);
-    return `https://placehold.co/600x400/EEF2FF/0B4C86?text=${label}`;
-}
-
-// ---------- Story navigation & audio ----------
-function stopNarration(){
-    window.speechSynthesis.cancel();
-    isReading = false;
-    narrationButton.textContent = 'Read This Page Aloud';
-    narrationButton.classList.remove('bg-red-500','hover:bg-red-600');
-    narrationButton.classList.add('bg-yellow-500','hover:bg-yellow-600');
-}
-
-function displayPage(pageNum){
-    if(!storyData || !storyData.pages || !storyData.pages.length) return;
-    currentPage = pageNum;
-    const pageIndex = pageNum - 1;
-    const page = storyData.pages[pageIndex];
-    stopNarration();
-    storyTitleEl.textContent = storyData.title || 'AI Story';
-    pageNumberDisplay.textContent = `Page ${pageNum} of ${storyData.pages.length}`;
-    pageImage.src = page.imageUrl || placeholderImageForPrompt(page.imagePrompt || page.image_prompt || page.imagePrompt);
-    pageText.textContent = page.text || page.text;
-    prevButton.disabled = pageNum === 1;
-    nextButton.disabled = pageNum === storyData.pages.length;
-
-    if (!page.audioUrl) {
-        narrationButton.textContent = 'Read This Page Aloud';
-        narrationButton.disabled = false; // we can use browser TTS
-        narrationButton.onclick = () => speakText(page.text || page.text);
-    } else {
-        // If backend provides audioUrl, play it; otherwise use browser TTS
-        narrationButton.disabled = false;
-        narrationButton.onclick = () => {
-            if (audioPlayer.src !== page.audioUrl) {
-                audioPlayer.src = page.audioUrl;
-            }
-            if (isReading) { audioPlayer.pause(); isReading=false; narrationButton.textContent='Read This Page Aloud'; }
-            else { audioPlayer.play(); isReading=true; narrationButton.textContent='Stop Reading'; }
-        };
-    }
-}
-
-function navigateStory(direction){
-    const newPage = currentPage + direction;
-    if(newPage >= 1 && newPage <= storyData.pages.length){
-        displayPage(newPage);
-    }
-}
-
-// ---------- Core: call Netlify function to generate story ----------
-async function startGeneration(){
-    const prompt = storyPromptEl.value.trim();
-    if(!prompt) return showError("Please enter a story idea!");
-    
-    storyData = null;
-    currentPage = 0;
-    pageView.classList.add('hidden');
-    loadingState.classList.remove('hidden');
-    generateButton.disabled = true;
-    generateButton.textContent = 'Generating...';
-    
-    updateLoading("Calling serverless story generator...", 1);
-    
-    try{
-        const response = await fetch(NETLIFY_FUNCTION_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, pageCount: STORY_PAGE_COUNT })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server error (${response.status}): ${errorText}`);
-        }
-
-        const json = await response.json();
-        // The function returns { story: { title, pages: [ {text, imagePrompt, imageUrl?, audioUrl?} ] } }
-        const final = json.story || json;
-        if (!final || !final.pages || final.pages.length === 0) {
-            throw new Error("Server returned empty story.");
-        }
-
-        // Normalize pages: ensure keys imagePrompt / text
-        storyData = {
-            title: final.title || "AI Storybook",
-            pages: final.pages.map(p => ({
-                text: p.text || p.body || p.page_text || '',
-                imagePrompt: p.imagePrompt || p.image_prompt || (p.imagePrompt ? p.imagePrompt : ''),
-                imageUrl: p.imageUrl || p.image_url || placeholderImageForPrompt(p.imagePrompt || p.image_prompt || p.text),
-                audioUrl: p.audioUrl || null
-            }))
-        };
-
-        updateLoading("Story received. Preparing...", 12);
-        setTimeout(()=>{
-            displayPage(1);
-            loadingState.classList.add('hidden');
-            pageView.classList.remove('hidden');
-            generateButton.disabled = false;
-            generateButton.textContent = 'Generate My Story!';
-        }, 500);
-
-    } catch(e){
-        showError(`Generation failed: ${e.message}`);
-        loadingState.classList.add('hidden');
-        generateButton.disabled = false;
-        generateButton.textContent = 'Generate My Story!';
-    }
-}
-
-// ----- wire buttons -----
-generateButton.addEventListener('click', startGeneration);
-prevButton.addEventListener('click', () => navigateStory(-1));
-nextButton.addEventListener('click', () => navigateStory(1));
-
-// Initial UI setup
-window.onload = () => {
-    prevButton.disabled = true;
-    nextButton.disabled = true;
-    narrationButton.disabled = true;
-    narrationButton.textContent = 'Read This Page Aloud';
-};
-</script>
+      const text = await Tesseract.recognize(file, "eng")
+        .then(({ data }) => data.text)
+        .catch(() => "Could not extract text.");
+      document.getElementById("prompt").value = text;
+      outputDiv.innerHTML = "✅ Text extracted and added to prompt!";
+    });
+  </script>
 </body>
 </html>
