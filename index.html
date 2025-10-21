@@ -1,94 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Storybook Studio</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #333; }
-    .story-card { background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 2rem; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Storybook Adventure</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+  .storybook-page { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05); transition: transform 0.3s ease-in-out; transform-style: preserve-3d; }
+  .loader-dot { animation: pulse 1.5s infinite; }
+  .loader-dot:nth-child(2){animation-delay:0.5s;}
+  .loader-dot:nth-child(3){animation-delay:1s;}
+  @keyframes pulse {0%,100%{opacity:1;}50%{opacity:0.5;}}
+</style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-6">
-  <h1 class="text-3xl font-bold mb-4 text-center">📖 AI Storybook Studio</h1>
-  <p class="text-gray-600 mb-6 text-center">Create magical tales using Gemini AI ✨</p>
+<body>
+<div id="app" class="min-h-screen flex flex-col items-center p-4 sm:p-8">
+  <img src="https://raw.githubusercontent.com/siddth09/storybookai-backend/main/public/logo.png" 
+       alt="StoryBook AI Logo" 
+       class="w-32 h-auto mb-4">
 
-  <div class="flex flex-col md:flex-row gap-4">
-    <textarea id="prompt" class="border rounded-lg p-3 w-80 h-40" placeholder="Describe your story idea..."></textarea>
-    <div class="flex flex-col gap-2">
-      <button id="generateBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Generate Story</button>
-      <button id="speakBtn" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">🔊 Read Aloud</button>
-      <button id="listenBtn" class="bg-yellow-400 text-black px-4 py-2 rounded-lg hover:bg-yellow-500">🎙️ Speak Prompt</button>
-      <input type="file" id="fileInput" class="mt-2" accept="image/*,.pdf" />
+  <h1 class="text-3xl sm:text-4xl font-extrabold text-blue-800 mb-6 text-center">
+    StoryBook AI - A Storybook Studio
+  </h1>
+
+  <div id="input-area" class="w-full max-w-xl bg-white p-6 rounded-xl shadow-lg mb-8">
+    <p class="text-sm text-gray-500 mb-4">
+      Tell me what your story is about.
+    </p>
+    <textarea id="story-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition resize-none" placeholder="Enter your story idea..."></textarea>
+    
+    <div class="mt-4 flex flex-col sm:flex-row gap-3">
+      <button id="record-button" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md flex items-center justify-center">
+        🎙️ Speak My Idea
+      </button>
+      
+      <label for="doc-upload" class="flex-1 py-3 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600 transition shadow-md flex items-center justify-center cursor-pointer">
+        📄 Upload Document
+      </label>
+      <input id="doc-upload" type="file" accept=".jpg,.jpeg,.png,.pdf" class="hidden" />
+    </div>
+
+    <p id="status-message" class="text-sm text-gray-600 mt-2 text-center"></p>
+
+    <button id="generate-button" class="w-full mt-4 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition shadow-md disabled:bg-gray-400">
+      Generate My Story!
+    </button>
+  </div>
+
+  <div id="story-container" class="w-full max-w-4xl relative min-h-[60vh] flex justify-center">
+    <div id="loading-state" class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10 hidden rounded-xl shadow-2xl p-8">
+      <div class="flex space-x-2">
+        <div class="loader-dot w-4 h-4 bg-blue-500 rounded-full"></div>
+        <div class="loader-dot w-4 h-4 bg-green-500 rounded-full"></div>
+        <div class="loader-dot w-4 h-4 bg-yellow-500 rounded-full"></div>
+      </div>
+      <p id="loading-message" class="mt-4 text-xl font-semibold text-gray-700 text-center">Generating Story Pages...</p>
+    </div>
+
+    <div id="page-view" class="storybook-page w-full h-full bg-white rounded-xl shadow-2xl p-4 sm:p-8 flex flex-col hidden">
+      <h2 id="story-title" class="text-2xl font-bold text-center text-blue-700 mb-4"></h2>
+      <div class="flex-grow flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-8">
+        <div class="w-full sm:w-1/2 flex justify-center">
+          <img id="page-image" src="https://placehold.co/400x300/e0f7fa/00bcd4?text=Illustration+Loading" alt="Story illustration" class="w-full h-auto max-h-[50vh] object-contain rounded-lg border-4 border-blue-100 shadow-md">
+        </div>
+        <div class="w-full sm:w-1/2 flex flex-col justify-between h-full">
+          <div class="text-area">
+            <p id="page-number-display" class="text-sm font-medium text-gray-500 mb-2"></p>
+            <p id="page-text" class="text-lg text-gray-800 leading-relaxed font-serif"></p>
+          </div>
+          <div class="mt-6 flex flex-col space-y-3">
+            <div class="flex space-x-4">
+              <button id="prev-button" onclick="navigateStory(-1)" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Previous</button>
+              <button id="next-button" onclick="navigateStory(1)" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition shadow-md disabled:bg-gray-400 flex items-center justify-center">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div id="output" class="story-card w-full md:w-2/3 hidden"></div>
+  <div id="error-box" class="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-xl hidden" role="alert">
+    <p id="error-text"></p>
+  </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-  <script>
-    const generateBtn = document.getElementById("generateBtn");
-    const outputDiv = document.getElementById("output");
-    const speakBtn = document.getElementById("speakBtn");
-    const listenBtn = document.getElementById("listenBtn");
-    const fileInput = document.getElementById("fileInput");
+<script>
+// --- Global State ---
+let storyData = null;
+let currentPage = 0;
 
-    // 🧠 Generate Story via Netlify Function
-    generateBtn.addEventListener("click", async () => {
-      const prompt = document.getElementById("prompt").value.trim();
-      if (!prompt) return alert("Please enter a prompt first!");
+// --- Elements ---
+const storyPromptEl = document.getElementById('story-prompt');
+const generateButton = document.getElementById('generate-button');
+const loadingState = document.getElementById('loading-state');
+const loadingMessage = document.getElementById('loading-message');
+const pageView = document.getElementById('page-view');
+const storyTitleEl = document.getElementById('story-title');
+const pageNumberDisplay = document.getElementById('page-number-display');
+const pageImage = document.getElementById('page-image');
+const pageText = document.getElementById('page-text');
+const prevButton = document.getElementById('prev-button');
+const nextButton = document.getElementById('next-button');
+const recordButton = document.getElementById('record-button');
+const docUploadInput = document.getElementById('doc-upload');
+const statusMessage = document.getElementById('status-message');
 
-      outputDiv.classList.remove("hidden");
-      outputDiv.innerHTML = "<p>🌀 Generating your story...</p>";
+// --- Utility ---
+function showError(msg){
+    const box = document.getElementById('error-box');
+    document.getElementById('error-text').textContent = msg;
+    box.classList.remove('hidden');
+    setTimeout(()=>box.classList.add('hidden'),5000);
+    console.error(msg);
+}
 
-      const res = await fetch("/api/generate-ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
+function displayPage(pageNum){
+    currentPage = pageNum;
+    const page = storyData.pages[pageNum-1];
+    storyTitleEl.textContent = storyData.title;
+    pageNumberDisplay.textContent = `Page ${pageNum} of ${storyData.pages.length}`;
+    pageImage.src = page.imageUrl || 'https://placehold.co/400x300/e0f7fa/00bcd4?text=Illustration+Failed';
+    pageText.textContent = page.text;
+    prevButton.disabled = pageNum===1;
+    nextButton.disabled = pageNum===storyData.pages.length;
+}
 
-      const data = await res.json();
-      if (data.error) {
-        outputDiv.innerHTML = "<p class='text-red-500'>❌ " + data.error + "</p>";
-      } else {
-        outputDiv.innerHTML = "<h2 class='text-xl font-bold mb-2'>Your Story</h2><p>" + data.story + "</p>";
-      }
-    });
+// --- Navigation ---
+function navigateStory(dir){
+    const newPage = currentPage + dir;
+    if(newPage>=1 && newPage<=storyData.pages.length) displayPage(newPage);
+}
 
-    // 🔊 Text-to-Speech
-    speakBtn.addEventListener("click", () => {
-      const text = outputDiv.innerText;
-      if (!text) return alert("No story to read!");
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      speechSynthesis.speak(utterance);
-    });
+// --- Generate Story ---
+generateButton.addEventListener('click', async ()=>{
+    const prompt = storyPromptEl.value.trim();
+    if(!prompt) return showError("Enter a story idea!");
+    storyData = null;
+    currentPage = 0;
+    pageView.classList.add('hidden');
+    loadingState.classList.remove('hidden');
+    generateButton.disabled = true;
+    generateButton.textContent = 'Generating...';
+    try{
+        const res = await fetch("/.netlify/functions/generate-ai", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({prompt})
+        });
+        const data = await res.json();
+        storyData = data;
+        displayPage(1);
+    } catch(e){
+        showError("Generation failed: "+e.message);
+    } finally{
+        loadingState.classList.add('hidden');
+        generateButton.disabled=false;
+        generateButton.textContent='Generate My Story!';
+    }
+});
 
-    // 🎙️ Speech-to-Text
-    listenBtn.addEventListener("click", () => {
-      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.lang = "en-US";
-      recognition.start();
-      recognition.onresult = (event) => {
-        document.getElementById("prompt").value = event.results[0][0].transcript;
-      };
-    });
+// --- STT ---
+let recognition, isRecording=false;
+if('SpeechRecognition' in window || 'webkitSpeechRecognition' in window){
+    const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.continuous=false;
+    recognition.interimResults=false;
+    recognition.lang='en-US';
+    recognition.onstart=()=>{isRecording=true;statusMessage.textContent="🎤 Listening...";recordButton.textContent="🛑 Stop";};
+    recognition.onresult=(e)=>{storyPromptEl.value=e.results[0][0].transcript;statusMessage.textContent="✅ Recorded!";};
+    recognition.onend=()=>{isRecording=false;recordButton.textContent="🎙️ Speak My Idea";};
+    recordButton.onclick=()=>{if(isRecording) recognition.stop(); else recognition.start();};
+}else{recordButton.disabled=true;recordButton.textContent="Speech Not Supported";}
 
-    // 📄 OCR Image/PDF Upload
-    fileInput.addEventListener("change", async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      outputDiv.classList.remove("hidden");
-      outputDiv.innerHTML = "🔍 Extracting text...";
-
-      const text = await Tesseract.recognize(file, "eng")
-        .then(({ data }) => data.text)
-        .catch(() => "Could not extract text.");
-      document.getElementById("prompt").value = text;
-      outputDiv.innerHTML = "✅ Text extracted and added to prompt!";
-    });
-  </script>
+// --- OCR ---
+docUploadInput.addEventListener('change', async e=>{
+    const file = e.target.files[0]; if(!file) return;
+    statusMessage.textContent="📄 Processing..."; generateButton.disabled=true;
+    try{
+        const worker = await Tesseract.createWorker('eng',{logger:m=>{}});
+        await worker.load();
+        await worker.loadLanguage('eng');
+        await worker.initialize('eng');
+        let obj=file;
+        if(file.type==='application/pdf' && window.pdfjsLib){
+            const buffer=await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(buffer).promise;
+            const page = await pdf.getPage(1);
+            const txt = await page.getTextContent();
+            const str = txt.items.map(i=>i.str).join(' ');
+            storyPromptEl.value=str;
+        }else{
+            const { data:{ text } } = await worker.recognize(file);
+            storyPromptEl.value=text;
+        }
+        await worker.terminate();
+        statusMessage.textContent="✅ OCR Completed!";
+    }catch(err){showError("OCR Failed: "+err.message);} finally{generateButton.disabled=false;}
+});
+</script>
 </body>
 </html>
