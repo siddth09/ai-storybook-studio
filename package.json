@@ -1,17 +1,10 @@
 {
-  "name": "storybook-ai",
-  "version": "1.0.0",
-  "description": "AI Storybook Studio (Netlify functions + Gemini 1.5 Pro)",
-  "private": true,
   "type": "module",
   "dependencies": {
-    "@google/generative-ai": "^0.15.0"
-  },
-  "devDependencies": {
-    "netlify-cli": "^17.0.0"
+    "@google/generative-ai": "^0.3.0"
   },
   "scripts": {
-  "build": "echo \"No build step - static site\"",
-  "start": "netlify dev"
+    "build": "echo 'No build step required'",
+    "start": "netlify dev"
   }
 }
